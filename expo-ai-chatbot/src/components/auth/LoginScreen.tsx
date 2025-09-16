@@ -60,7 +60,7 @@ export default function LoginScreen() {
         style={styles.container}
       >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="white" />
+          <ActivityIndicator size="large" color="white" testID="activity-indicator" />
           <Text style={styles.loadingText}>
             Signing you in...
           </Text>
