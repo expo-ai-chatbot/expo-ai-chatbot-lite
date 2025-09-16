@@ -1,7 +1,7 @@
 import { generateUUID } from "@/lib/utils";
 import { Redirect, Stack, useNavigation } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import { Pressable, type TextInput, View, ScrollView } from "react-native";
+import { Pressable, type TextInput, View, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetch } from "expo/fetch";
 import { useChat } from "@ai-sdk/react";
@@ -11,9 +11,11 @@ import { ChatInput } from "@/components/ui/chat-input";
 import { SuggestedActions } from "@/components/suggested-actions";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
-import { MessageCirclePlusIcon, Menu } from "lucide-react-native";
+import { MessageCirclePlusIcon, Menu, LogOut } from "lucide-react-native";
 import type { Message } from "@ai-sdk/react";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { useAuthContext } from "@/context/AuthContext";
+import LoginScreen from "@/components/auth/LoginScreen";
 
 type WeatherResult = {
   city: string;
@@ -24,6 +26,7 @@ type WeatherResult = {
 };
 
 const HomePage = () => {
+  const { user, session, isLoading: authLoading, signOut } = useAuthContext();
   const {
     clearImageUris,
     setBottomChatHeightHandler,
@@ -32,6 +35,20 @@ const HomePage = () => {
     setChatId,
   } = useStore();
   const inputRef = useRef<TextInput>(null);
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <View className="flex-1 bg-white dark:bg-black items-center justify-center">
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  // Show login screen if user is not authenticated
+  if (!user || !session) {
+    return <LoginScreen />;
+  }
 
   // Initialize chatId if not set
   useEffect(() => {
@@ -118,12 +135,17 @@ const HomePage = () => {
           title: "hey",
 
           headerRight: () => (
-            <Pressable disabled={!messages.length} onPress={handleNewChat}>
-              <MessageCirclePlusIcon
-                size={20}
-                color={!messages.length ? "#eee" : "black"}
-              />
-            </Pressable>
+            <View className="flex-row items-center space-x-4">
+              <Pressable disabled={!messages.length} onPress={handleNewChat}>
+                <MessageCirclePlusIcon
+                  size={20}
+                  color={!messages.length ? "#eee" : "black"}
+                />
+              </Pressable>
+              <Pressable onPress={signOut}>
+                <LogOut size={20} color="black" />
+              </Pressable>
+            </View>
           ),
         }}
       />

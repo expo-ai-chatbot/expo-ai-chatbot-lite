@@ -28,4 +28,4 @@ export function useImagePicker(): ImagePickerResult {
   };
 
   return { pickImage };
-} 
+}
