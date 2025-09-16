@@ -59,10 +59,12 @@ export default function LoginScreen() {
         colors={['#667eea', '#764ba2']}
         style={styles.container}
       >
-        <ActivityIndicator size="large" color="white" />
-        <Text style={styles.loadingText}>
-          Signing you in...
-        </Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="white" />
+          <Text style={styles.loadingText}>
+            Signing you in...
+          </Text>
+        </View>
       </LinearGradient>
     );
   }
@@ -378,6 +380,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 30,
     paddingHorizontal: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingText: {
     color: 'white',
