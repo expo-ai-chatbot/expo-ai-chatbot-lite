@@ -1,36 +1,31 @@
 import { generateUUID } from "@/lib/utils";
-import { Redirect, Stack, useNavigation } from "expo-router";
+import { Stack } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import { Pressable, type TextInput, View, ScrollView } from "react-native";
+import { Pressable, type TextInput, View, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetch } from "expo/fetch";
 import { useChat } from "@ai-sdk/react";
-import { LottieLoader } from "@/components/lottie-loader";
 import { ChatInterface } from "@/components/chat-interface";
 import { ChatInput } from "@/components/ui/chat-input";
 import { SuggestedActions } from "@/components/suggested-actions";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
-import { MessageCirclePlusIcon, Menu } from "lucide-react-native";
+import { MessageCirclePlusIcon, LogOut, History, LayoutDashboard } from "lucide-react-native";
 import type { Message } from "@ai-sdk/react";
 import Animated, { FadeIn } from "react-native-reanimated";
-
-type WeatherResult = {
-  city: string;
-  temperature: number;
-  weatherCode: string;
-  humidity: number;
-  wind: number;
-};
+import { AuthGuard } from "@/components/auth-guard";
+import { signOut } from "@/lib/auth-client";
+import { router } from "expo-router";
+import { useAuth } from "@/contexts/auth-context";
 
 const HomePage = () => {
   const {
     clearImageUris,
     setBottomChatHeightHandler,
-    setFocusKeyboard,
     chatId,
     setChatId,
   } = useStore();
+  const { setDemoMode } = useAuth();
   const inputRef = useRef<TextInput>(null);
 
   // Initialize chatId if not set
@@ -51,7 +46,7 @@ const HomePage = () => {
   } = useChat({
     initialMessages: [],
     id: chatId?.id,
-    api: `${process.env.EXPO_PUBLIC_API_URL}/api/chat-open`,
+    api: `${process.env.EXPO_PUBLIC_API_URL}/api/chat-open?chatId=${chatId?.id}`,
     body: {
       modelId: "gpt-4o-mini",
     },
@@ -66,13 +61,13 @@ const HomePage = () => {
           ...options.headers,
           "Content-Type": "application/json",
         },
+        credentials: "include",
       }).catch((error) => {
-        console.error("Fetch error:", error);
         throw error;
       });
     },
     onError(error) {
-      console.log(">> error is", error.message);
+      // Handle chat errors silently
     },
   });
 
@@ -90,6 +85,25 @@ const HomePage = () => {
     }, 100);
   }, [clearImageUris, setBottomChatHeightHandler, setMessages, setChatId]);
 
+  const handleLogout = useCallback(async () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            await signOut();
+            await setDemoMode(false); // Clear demo mode on logout
+            router.replace("/login");
+          },
+        },
+      ]
+    );
+  }, [setDemoMode]);
+
   const handleTextChange = (text: string) => {
     handleInputChange({
       target: { value: text },
@@ -99,34 +113,76 @@ const HomePage = () => {
   const { bottom } = useSafeAreaInsets();
   const scrollViewRef = useRef<GHScrollView>(null);
 
-  // Reset messages when chatId changes
+  // Load existing chat messages when coming from history, reset for new chats
   useEffect(() => {
     if (chatId) {
-      setMessages([] as Message[]);
+      if (chatId.from === 'history') {
+        // Load existing chat messages
+        const loadChatMessages = async () => {
+          try {
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/chat?id=${chatId.id}`, {
+              credentials: 'include',
+            });
+            
+            if (response.ok) {
+              const chatData = await response.json();
+              const formattedMessages = chatData.messages.map((msg: any) => ({
+                id: msg.id,
+                role: msg.role,
+                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+                createdAt: new Date(msg.createdAt),
+              }));
+              setMessages(formattedMessages);
+            }
+          } catch (error) {
+            // Failed to load chat messages - continue with empty chat
+          }
+        };
+        
+        loadChatMessages();
+      } else {
+        // New chat - reset messages
+        setMessages([] as Message[]);
+      }
     }
   }, [chatId, setMessages]);
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(250)}
-      className="flex-1 bg-white dark:bg-black"
-      style={{ paddingBottom: bottom }}
-    >
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: "hey",
-
-          headerRight: () => (
-            <Pressable disabled={!messages.length} onPress={handleNewChat}>
-              <MessageCirclePlusIcon
-                size={20}
-                color={!messages.length ? "#eee" : "black"}
-              />
-            </Pressable>
-          ),
-        }}
-      />
+    <AuthGuard>
+      <Animated.View
+        entering={FadeIn.duration(250)}
+        className="flex-1 bg-white dark:bg-black"
+        style={{ paddingBottom: bottom }}
+      >
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: "AI Chat",
+            headerLeft: () => (
+              <View className="flex-row gap-3 items-center">
+                <Pressable onPress={() => router.push('/dashboard')}>
+                  <LayoutDashboard size={18} color="black" />
+                </Pressable>
+              </View>
+            ),
+            headerRight: () => (
+              <View className="flex-row gap-3 items-center">
+                <Pressable onPress={() => router.push('/history')}>
+                  <History size={20} color="black" />
+                </Pressable>
+                <Pressable disabled={!messages.length} onPress={handleNewChat}>
+                  <MessageCirclePlusIcon
+                    size={20}
+                    color={!messages.length ? "#eee" : "black"}
+                  />
+                </Pressable>
+                <Pressable onPress={handleLogout}>
+                  <LogOut size={20} color="black" />
+                </Pressable>
+              </View>
+            ),
+          }}
+        />
       <ScrollView
         className="container relative mx-auto flex-1 bg-white dark:bg-black"
         ref={scrollViewRef}
@@ -155,6 +211,7 @@ const HomePage = () => {
         }}
       />
     </Animated.View>
+    </AuthGuard>
   );
 };
 

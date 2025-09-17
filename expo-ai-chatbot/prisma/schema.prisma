@@ -20,6 +20,7 @@ model User {
 
   accounts Account[]
   sessions Session[]
+  chats    Chat[]
 
   @@map("users")
 }
@@ -61,4 +62,30 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verificationtokens")
+}
+
+model Chat {
+  id          String    @id @default(cuid())
+  title       String
+  userId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  visibility  String    @default("private") // "private" or "public"
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[]
+
+  @@map("chats")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  chatId    String
+  role      String   // "user", "assistant", "system"
+  content   Json
+  createdAt DateTime @default(now())
+
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
 }
