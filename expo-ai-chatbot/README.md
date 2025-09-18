@@ -41,7 +41,7 @@
 
 1. Start your development server:
    ```bash
-   pnpm start
+   pnpm run ios
    ```
 
 2. Open the app on a device/simulator
