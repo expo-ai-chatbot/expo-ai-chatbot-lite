@@ -1,7 +1,13 @@
-import React, { createContext, useContext, useEffect, ReactNode, useState } from 'react';
-import { useSession } from '../lib/auth-client';
-import type { Session } from '../lib/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  ReactNode,
+  useState,
+} from "react";
+import { useSession } from "../lib/auth-client";
+import type { Session } from "../lib/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type AuthContextType = {
   session: Session | null;
@@ -17,13 +23,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending: sessionLoading } = useSession();
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoModeChecked, setDemoModeChecked] = useState(false);
-  
+
   // Check for demo mode on mount
   useEffect(() => {
     const checkDemoMode = async () => {
       try {
-        const demoMode = await AsyncStorage.getItem('demoMode');
-        if (demoMode === 'true') {
+        const demoMode = await AsyncStorage.getItem("demoMode");
+        if (demoMode === "true") {
           setIsDemoMode(true);
         }
         setDemoModeChecked(true);
@@ -33,19 +39,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     checkDemoMode();
   }, []);
-  
+
   const isAuthenticated = isDemoMode || !!session?.user;
   // Only show loading if we haven't checked demo mode yet. If demo mode is active, don't wait for session
   const isLoading = !demoModeChecked;
-  
 
   const setDemoMode = async (demo: boolean) => {
     try {
       if (demo) {
-        await AsyncStorage.setItem('demoMode', 'true');
+        await AsyncStorage.setItem("demoMode", "true");
         setIsDemoMode(true);
       } else {
-        await AsyncStorage.removeItem('demoMode');
+        await AsyncStorage.removeItem("demoMode");
         setIsDemoMode(false);
       }
     } catch (error) {
@@ -67,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
