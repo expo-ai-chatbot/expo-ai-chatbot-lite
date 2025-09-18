@@ -44,6 +44,8 @@
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-use-escape-keydown": "^1.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/hooks": "^3.0.0",
+    "@react-native-menu/menu": "^1.1.7",
     "@rn-primitives/avatar": "^1.0.5",
     "@rn-primitives/slot": "^1.1.0",
     "@rn-primitives/types": "^1.1.0",
