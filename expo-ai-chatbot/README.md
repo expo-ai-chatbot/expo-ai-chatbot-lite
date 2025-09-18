@@ -1,78 +1,73 @@
-# Expo AI Chatbot
+# OAuth Provider Setup Guide
 
-A mobile chat interface built with Expo and React Native.
+## Setting up Discord OAuth
 
-## Prerequisites
+1. **Create Discord Application**
+   - Go to [Discord Developer Portal](https://discord.com/developers/applications)
+   - Click "New Application" and give it a name
+   - Note down the Application ID (this is your Client ID)
 
-- Node.js
-- npm, yarn, or bun
-- Expo CLI (`npm install -g expo-cli`)
+2. **Configure OAuth2**
+   - Go to the "OAuth2" section in your application
+   - Copy the Client Secret
+   - Add redirect URI: `lite.expoaichatbot.com://auth/discord/callback`
+   - Add another redirect URI: `http://localhost:8081/api/auth/callback/discord` (for development testing)
 
-## Setup & Installation
+3. **Update Environment Variables**
+   ```
+   DISCORD_CLIENT_ID=your_application_id_here
+   DISCORD_CLIENT_SECRET=your_client_secret_here
+   ```
 
-1. Install dependencies:
+## Database Setup
+
+1. **Install Prisma CLI** (if not already installed):
+   ```bash
+   pnpm add -D @prisma/client
+   pnpm prisma generate
+   ```
+
+2. **Create Database**:
+   ```bash
+   pnpm prisma db push
+   ```
+
+3. **Generate Prisma Client**:
+   ```bash
+   pnpm prisma generate
+   ```
+
+## Testing the Setup
+
+1. Start your development server:
+   ```bash
+   pnpm start
+   ```
+
+2. Open the app on a device/simulator
+3. You should see the login screen with Discord and Google buttons
+4. Test the authentication flow
+
+## Important Notes
+
+- The redirect URIs must match exactly (including the scheme)
+- For production, update the BETTER_AUTH_URL and EXPO_PUBLIC_API_URL to your production URLs
+- Generate a strong secret for BETTER_AUTH_SECRET in production
+- The app scheme `lite.expoaichatbot.com` is already configured in your app.json
+
+## File Structure Created
 
 ```
-npm install
-# or
-yarn install
-# or
-bun install
+src/
+├── lib/
+│   ├── auth.ts              # Server-side auth configuration
+│   └── auth-client.ts       # Client-side auth configuration
+├── contexts/
+│   └── auth-context.tsx     # React context for auth state
+├── components/
+│   └── auth-guard.tsx       # Protected route component
+├── app/
+│   ├── api/auth/[...auth].ts # Auth API routes
+│   └── login.tsx            # Login screen
+└── providers.tsx            # Updated with AuthProvider
 ```
-
-2. Start the Next.js API server:
-
-```
-cd ../nextjs-ai-chatbot
-npm run dev
-```
-
-3. Start Expo development server:
-
-```
-bun start
-# or
-npm start
-# or
-yarn start
-```
-
-4. Run on device/simulator:
-
-- Scan QR code with Expo Go app (iOS/Android)
-- Press 'i' for iOS simulator
-- Press 'a' for Android emulator
-
-## Development
-
-The app requires both the Expo frontend and Next.js backend to be running:
-
-- Expo frontend runs on default Expo port (8081)
-- Next.js API runs on http://localhost:3000
-
-## Project Structure
-
-- `/components` - React Native components
-- `/screens` - App screens/pages
-- `/design-system` - Design system components based on Tailwind CSS
-- `/services/auth` - Authentication service
-
-## API
-
-### `useChatFromHistory`
-
-This hook is used to fetch the chat history from the server. It is used in the `index.tsx` file and also on the `DrawerContent` component. It is used to fetch the chat history from the server and return the messages in a format that can be used by the `Chat` component when the user clicks on the chat history button. Also it's used when a new chat is created.
-
-### ChatInput
-
-This component is used to input the chat messages. It is used in the `index.tsx` file.
-
-ℹ️ There is a `ChatInputAnimated` component that is a alpha version of the `ChatInput` component. It is used to input the chat messages too but it replicates the OpenAI chat interface interaction on new messages where the last message is placed on the top of the vissible chat body screen.
-
-### ChatInterface
-
-This component is used to display the chat messages. It is used in the `index.tsx` file. It also handles Tool Invocations.
-
-### CustomMarkdown
-
-It has custom Nativewind components and custom rules to better display markdown content in the React Native chat context. It is using the `react-native-markdown-display` library and the `@expo/html-elements` library on top. Per the docs: "It a 100% compatible CommonMark renderer, a react-native markdown renderer done right. This is not a web-view markdown renderer but a renderer that uses native components for all its elements.". It has plugins and extensions too to further enhance the markdown rendering to your needs.
