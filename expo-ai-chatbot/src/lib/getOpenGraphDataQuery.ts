@@ -34,6 +34,7 @@ export async function getOpenGraphDataQuery(
       siteName: $('meta[property="og:site_name"]').attr("content") || "",
     };
 
+    console.log("ogData", ogData);
     return ogData;
   } catch (error) {
     console.error("Error fetching Open Graph data:", error);
