@@ -1,7 +1,13 @@
 import { generateUUID } from "@/lib/utils";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import { Pressable, type TextInput, View, ScrollView, Alert } from "react-native";
+import {
+  Pressable,
+  type TextInput,
+  View,
+  ScrollView,
+  Alert,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetch } from "expo/fetch";
 import { useChat } from "@ai-sdk/react";
@@ -10,7 +16,12 @@ import { ChatInput } from "@/components/ui/chat-input";
 import { SuggestedActions } from "@/components/suggested-actions";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
-import { MessageCirclePlusIcon, LogOut, History, LayoutDashboard } from "lucide-react-native";
+import {
+  MessageCirclePlusIcon,
+  LogOut,
+  History,
+  LayoutDashboard,
+} from "lucide-react-native";
 import type { Message } from "@ai-sdk/react";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { AuthGuard } from "@/components/auth-guard";
@@ -19,12 +30,8 @@ import { router } from "expo-router";
 import { useAuth } from "@/contexts/auth-context";
 
 const HomePage = () => {
-  const {
-    clearImageUris,
-    setBottomChatHeightHandler,
-    chatId,
-    setChatId,
-  } = useStore();
+  const { clearImageUris, setBottomChatHeightHandler, chatId, setChatId } =
+    useStore();
   const { setDemoMode } = useAuth();
   const inputRef = useRef<TextInput>(null);
 
@@ -86,22 +93,18 @@ const HomePage = () => {
   }, [clearImageUris, setBottomChatHeightHandler, setMessages, setChatId]);
 
   const handleLogout = useCallback(async () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            await signOut();
-            await setDemoMode(false); // Clear demo mode on logout
-            router.replace("/login");
-          },
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          await setDemoMode(false); // Clear demo mode on logout
+          router.replace("/login");
         },
-      ]
-    );
+      },
+    ]);
   }, [setDemoMode]);
 
   const handleTextChange = (text: string) => {
@@ -116,20 +119,26 @@ const HomePage = () => {
   // Load existing chat messages when coming from history, reset for new chats
   useEffect(() => {
     if (chatId) {
-      if (chatId.from === 'history') {
+      if (chatId.from === "history") {
         // Load existing chat messages
         const loadChatMessages = async () => {
           try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/chat?id=${chatId.id}`, {
-              credentials: 'include',
-            });
-            
+            const response = await fetch(
+              `${process.env.EXPO_PUBLIC_API_URL}/api/chat?id=${chatId.id}`,
+              {
+                credentials: "include",
+              },
+            );
+
             if (response.ok) {
               const chatData = await response.json();
               const formattedMessages = chatData.messages.map((msg: any) => ({
                 id: msg.id,
                 role: msg.role,
-                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+                content:
+                  typeof msg.content === "string"
+                    ? msg.content
+                    : JSON.stringify(msg.content),
                 createdAt: new Date(msg.createdAt),
               }));
               setMessages(formattedMessages);
@@ -138,7 +147,7 @@ const HomePage = () => {
             // Failed to load chat messages - continue with empty chat
           }
         };
-        
+
         loadChatMessages();
       } else {
         // New chat - reset messages
@@ -159,15 +168,15 @@ const HomePage = () => {
             headerShown: true,
             title: "AI Chat",
             headerLeft: () => (
-              <View className="flex-row gap-3 items-center">
-                <Pressable onPress={() => router.push('/dashboard')}>
+              <View className="flex-row items-center gap-3">
+                <Pressable onPress={() => router.push("/dashboard")}>
                   <LayoutDashboard size={18} color="black" />
                 </Pressable>
               </View>
             ),
             headerRight: () => (
-              <View className="flex-row gap-3 items-center">
-                <Pressable onPress={() => router.push('/history')}>
+              <View className="flex-row items-center gap-3">
+                <Pressable onPress={() => router.push("/history")}>
                   <History size={20} color="black" />
                 </Pressable>
                 <Pressable disabled={!messages.length} onPress={handleNewChat}>
@@ -183,34 +192,34 @@ const HomePage = () => {
             ),
           }}
         />
-      <ScrollView
-        className="container relative mx-auto flex-1 bg-white dark:bg-black"
-        ref={scrollViewRef}
-      >
-        <ChatInterface
-          messages={messages}
+        <ScrollView
+          className="container relative mx-auto flex-1 bg-white dark:bg-black"
+          ref={scrollViewRef}
+        >
+          <ChatInterface
+            messages={messages}
+            scrollViewRef={scrollViewRef}
+            isLoading={isLoading}
+          />
+        </ScrollView>
+
+        {messages.length === 0 && (
+          <SuggestedActions hasInput={input.length > 0} append={append} />
+        )}
+
+        <ChatInput
+          ref={inputRef}
           scrollViewRef={scrollViewRef}
-          isLoading={isLoading}
+          input={input}
+          onChangeText={handleTextChange}
+          focusOnMount={false}
+          onSubmit={() => {
+            setBottomChatHeightHandler(true);
+            handleSubmit(undefined);
+            clearImageUris();
+          }}
         />
-      </ScrollView>
-
-      {messages.length === 0 && (
-        <SuggestedActions hasInput={input.length > 0} append={append} />
-      )}
-
-      <ChatInput
-        ref={inputRef}
-        scrollViewRef={scrollViewRef}
-        input={input}
-        onChangeText={handleTextChange}
-        focusOnMount={false}
-        onSubmit={() => {
-          setBottomChatHeightHandler(true);
-          handleSubmit(undefined);
-          clearImageUris();
-        }}
-      />
-    </Animated.View>
+      </Animated.View>
     </AuthGuard>
   );
 };
