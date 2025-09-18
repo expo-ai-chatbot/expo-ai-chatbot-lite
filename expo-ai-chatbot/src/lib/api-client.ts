@@ -31,9 +31,11 @@ export async function fetchApi(
 
 export async function getChatsByUserId({ token }: { token: string }) {
   try {
+    console.log("getChatsByUserId called");
     const response = await fetchApi("history", {
       token,
     });
+    console.log("getChatsByUserId response", response);
     return response;
   } catch (error) {
     console.error("Error fetching chats.", error);
