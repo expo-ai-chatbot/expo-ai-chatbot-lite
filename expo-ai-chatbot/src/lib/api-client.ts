@@ -1,11 +1,12 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { authClient } from "@/lib/auth-client";
 
 export async function fetchApi(
   endpoint: string,
-  options: { token: string; chatId?: string; method?: string; body?: any },
+  options: { chatId?: string; method?: string; body?: any } = {},
 ) {
-  const token = await AsyncStorage.getItem("session");
-
+  // Get the session from Better Auth client
+  const session = await authClient.getSession();
+  
   const response = await fetch(
     `${process.env.EXPO_PUBLIC_API_URL}${endpoint.startsWith('/') ? endpoint : `/api/${endpoint}`}`,
     {
@@ -13,7 +14,7 @@ export async function fetchApi(
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
+        // Better Auth will handle session cookies automatically with credentials: "include"
       },
       ...(options.body && { body: JSON.stringify(options.body) }),
       ...(options.chatId && !options.body && {
@@ -29,12 +30,10 @@ export async function fetchApi(
   return response.json();
 }
 
-export async function getChatsByUserId({ token }: { token: string }) {
+export async function getChatsByUserId() {
   try {
     console.log("getChatsByUserId called");
-    const response = await fetchApi("history", {
-      token,
-    });
+    const response = await fetchApi("history");
     console.log("getChatsByUserId response", response);
     return response;
   } catch (error) {
@@ -43,15 +42,9 @@ export async function getChatsByUserId({ token }: { token: string }) {
   }
 }
 
-export async function getChatById({
-  chatId,
-  token,
-}: {
-  chatId: string;
-  token: string;
-}) {
+export async function getChatById({ chatId }: { chatId: string }) {
   try {
-    const response = await fetchApi("/api/chat", { chatId, token });
+    const response = await fetchApi("/api/chat", { chatId });
     return response;
   } catch (error) {
     console.error("Error fetching chat.", error);

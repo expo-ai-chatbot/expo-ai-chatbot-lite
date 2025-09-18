@@ -5,9 +5,14 @@ const prisma = new PrismaClient();
 
 export async function GET(request: Request) {
   try {
+    console.log('Chat API GET called', request.url);
+    console.log('Headers:', Object.fromEntries(request.headers.entries()));
+    
     const session = await auth.api.getSession({ 
       headers: request.headers 
     });
+    
+    console.log('Session:', session ? 'Found' : 'Not found');
 
     if (!session) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });

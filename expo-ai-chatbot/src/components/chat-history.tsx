@@ -8,6 +8,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { useSession } from "@/lib/auth-client";
+import { getChatsByUserId, fetchApi } from "@/lib/api-client";
 import { MessageCircle, Trash2 } from "lucide-react-native";
 import { useFocusEffect } from "expo-router";
 import { useStore } from "@/lib/globalStore";
@@ -40,23 +41,10 @@ export function ChatHistory({ compact = false }: { compact?: boolean }) {
 
     try {
       setLoading(true);
-      // For now, we'll use a simple fetch since getChatsByUserId expects a different API format
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/chat`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        },
-      );
-
-      if (response.ok) {
-        const chatData = await response.json();
-        setChats(chatData);
-      } else {
-        console.error("ChatHistory: API error:", response.statusText);
-      }
+      
+      // Use the updated API client that works with Better Auth sessions
+      const chats = await getChatsByUserId();
+      setChats(chats.chats || chats);
     } catch (error) {
       console.error("Error loading chats:", error);
     } finally {
@@ -86,17 +74,11 @@ export function ChatHistory({ compact = false }: { compact?: boolean }) {
 
   const handleDeleteChat = useCallback(async (chatId: string) => {
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/chat?id=${chatId}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
-
-      if (response.ok) {
-        setChats((prev) => prev.filter((chat) => chat.id !== chatId));
-      }
+      await fetchApi(`/api/chat?id=${chatId}`, {
+        method: "DELETE",
+      });
+      
+      setChats((prev) => prev.filter((chat) => chat.id !== chatId));
     } catch (error) {
       console.error("Error deleting chat:", error);
     }

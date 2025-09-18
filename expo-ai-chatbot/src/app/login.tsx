@@ -1,16 +1,63 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, Alert, ActivityIndicator } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Alert, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { signIn } from "@/lib/auth-client";
 import { router } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useAuth } from "@/contexts/auth-context";
+// UI Components
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Text } from "@/components/ui/text";
+import H1 from "@/components/ui/h1";
 
 export default function LoginScreen() {
   const [isDiscordLoading, setIsDiscordLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const { top, bottom } = useSafeAreaInsets();
-  const { setDemoMode } = useAuth();
+  const { setDemoMode, isAuthenticated, session } = useAuth();
+
+  // Monitor authentication state and redirect when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("User authenticated, navigating to history...");
+      // Reset loading states and navigate
+      setIsDiscordLoading(false);
+      setIsGoogleLoading(false);
+      router.replace("/(app)/history");
+    }
+  }, [isAuthenticated]);
+
+  // Add timeout to reset loading states if login takes too long
+  useEffect(() => {
+    let discordTimeout: NodeJS.Timeout | null = null;
+    let googleTimeout: NodeJS.Timeout | null = null;
+
+    if (isDiscordLoading) {
+      discordTimeout = setTimeout(() => {
+        console.log("Discord login timeout, resetting loading state");
+        setIsDiscordLoading(false);
+      }, 30000); // 30 seconds timeout
+    }
+
+    if (isGoogleLoading) {
+      googleTimeout = setTimeout(() => {
+        console.log("Google login timeout, resetting loading state");
+        setIsGoogleLoading(false);
+      }, 30000); // 30 seconds timeout
+    }
+
+    return () => {
+      if (discordTimeout) clearTimeout(discordTimeout);
+      if (googleTimeout) clearTimeout(googleTimeout);
+    };
+  }, [isDiscordLoading, isGoogleLoading]);
 
   const handleDiscordLogin = async () => {
     try {
@@ -23,18 +70,45 @@ export default function LoginScreen() {
         );
         return;
       }
-      await signIn.social({
-        provider: 'discord',
+      
+      console.log("Starting Discord login...");
+      const result = await signIn.social({
+        provider: "discord",
       });
-      router.replace('/(app)/history');
+      console.log("Discord login result:", result);
+      
+      // Don't navigate immediately - let the useEffect handle navigation
+      // when the authentication state changes
     } catch (error) {
+      console.error("Discord login error:", error);
+      
+      let errorMessage = "Discord login is not fully configured yet. ";
+      
+      if (error && typeof error === 'object' && 'error' in error) {
+        const authError = error.error as any;
+        if (authError?.status === 404) {
+          errorMessage += "The Discord OAuth endpoints are not accessible. ";
+        }
+      }
+      
+      errorMessage += "Please use the demo mode to explore the app, or contact support to set up Discord authentication.";
+      
       Alert.alert(
-        "Login Error",
-        "Discord login is not available. Please configure OAuth credentials or use another method.",
+        "Discord Login Unavailable",
+        errorMessage,
+        [
+          { text: "OK", style: "default" },
+          {
+            text: "Try Demo Mode",
+            style: "default",
+            onPress: () => handleDemoLogin()
+          }
+        ]
       );
-    } finally {
       setIsDiscordLoading(false);
     }
+    // Note: Don't set loading to false here if login succeeded
+    // Let the useEffect handle it when auth state changes
   };
 
   const handleGoogleLogin = async () => {
@@ -48,18 +122,45 @@ export default function LoginScreen() {
         );
         return;
       }
-      await signIn.social({
-        provider: 'google',
+      
+      console.log("Starting Google login...");
+      const result = await signIn.social({
+        provider: "google",
       });
-      router.replace('/(app)/history');
+      console.log("Google login result:", result);
+      
+      // Don't navigate immediately - let the useEffect handle navigation
+      // when the authentication state changes
     } catch (error) {
+      console.error("Google login error:", error);
+      
+      let errorMessage = "Google login is not fully configured yet. ";
+      
+      if (error && typeof error === 'object' && 'error' in error) {
+        const authError = error.error as any;
+        if (authError?.status === 404) {
+          errorMessage += "The Google OAuth endpoints are not accessible. ";
+        }
+      }
+      
+      errorMessage += "Please use the demo mode to explore the app, or contact support to set up Google authentication.";
+      
       Alert.alert(
-        "Login Error",
-        "Google login is not available. Please configure OAuth credentials or use another method.",
+        "Google Login Unavailable",
+        errorMessage,
+        [
+          { text: "OK", style: "default" },
+          {
+            text: "Try Demo Mode",
+            style: "default",
+            onPress: () => handleDemoLogin()
+          }
+        ]
       );
-    } finally {
       setIsGoogleLoading(false);
     }
+    // Note: Don't set loading to false here if login succeeded
+    // Let the useEffect handle it when auth state changes
   };
 
   // Guest/demo login function
@@ -75,90 +176,184 @@ export default function LoginScreen() {
           onPress: async () => {
             try {
               await setDemoMode(true);
-              router.replace('/(app)/history');
+              router.replace("/(app)/history");
             } catch (error) {
-              Alert.alert('Error', 'Failed to enter demo mode. Please try again.');
+              Alert.alert(
+                "Error",
+                "Failed to enter demo mode. Please try again.",
+              );
             }
-          }
+          },
         },
       ],
     );
   };
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(300)}
-      className="flex-1 bg-white px-6 dark:bg-black"
-      style={{ paddingTop: top + 20, paddingBottom: bottom + 20 }}
+    <ScrollView 
+      style={{ 
+        flex: 1,
+        backgroundColor: '#ffffff',
+        paddingTop: top, 
+        paddingBottom: bottom 
+      }}
+      contentContainerStyle={{ flexGrow: 1 }}
     >
-      <View className="flex-1 justify-center space-y-8">
-        {/* Header */}
-        <View className="items-center space-y-4">
-          <Text className="text-3xl font-bold text-gray-900 dark:text-white">
-            Welcome Back
-          </Text>
-          <Text className="text-center text-lg text-gray-600 dark:text-gray-400">
-            Sign in to continue using the AI chatbot
+      <Animated.View
+        entering={FadeIn.duration(300)}
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+          paddingVertical: 32
+        }}
+      >
+        {/* Header Section */}
+        <View style={{ alignItems: 'center', marginBottom: 32 }}>
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 32, marginBottom: 8, textAlign: 'center' }}>🤖</Text>
+            <H1>Welcome Back</H1>
+          </View>
+          <Text style={{ 
+            textAlign: 'center', 
+            color: '#6b7280',
+            lineHeight: 20,
+            maxWidth: 300
+          }}>
+            Sign in to continue your AI conversations and access your chat history
           </Text>
         </View>
 
-        {/* OAuth Buttons */}
-        <View className="space-y-4">
-          {/* Discord Button */}
-          <Pressable
-            onPress={handleDiscordLogin}
-            disabled={isDiscordLoading || isGoogleLoading}
-            className={`flex-row items-center justify-center space-x-3 rounded-xl bg-[#5865F2] px-6 py-4 ${
-              isDiscordLoading || isGoogleLoading ? "opacity-50" : ""
-            }`}
-          >
-            {isDiscordLoading ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <Text className="text-lg font-semibold text-white">📱</Text>
-            )}
-            <Text className="text-lg font-semibold text-white">
-              Continue with Discord
+        {/* Main Login Card */}
+        <View style={{
+          backgroundColor: '#ffffff',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#e5e7eb',
+          marginBottom: 24,
+          padding: 24,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3
+        }}>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ 
+              fontSize: 20, 
+              fontWeight: '600', 
+              color: '#111827',
+              marginBottom: 8
+            }}>Choose your sign-in method</Text>
+            <Text style={{
+              fontSize: 14,
+              color: '#6b7280',
+              textAlign: 'center'
+            }}>
+              Select one of the options below to get started
             </Text>
-          </Pressable>
+          </View>
+            {/* Discord Button */}
+            <Button
+              variant="default"
+              size="lg"
+              onPress={handleDiscordLogin}
+              disabled={isDiscordLoading || isGoogleLoading}
+              isLoading={isDiscordLoading}
+              style={{
+                backgroundColor: '#5865F2',
+                marginBottom: 12
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {!isDiscordLoading && (
+                  <Text style={{ 
+                    fontSize: 18, 
+                    color: '#ffffff', 
+                    marginRight: 8 
+                  }}>📱</Text>
+                )}
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 16,
+                  fontWeight: '600'
+                }}>
+                  Continue with Discord
+                </Text>
+              </View>
+            </Button>
 
-          {/* Google Button */}
-          <Pressable
-            onPress={handleGoogleLogin}
-            disabled={isGoogleLoading || isDiscordLoading}
-            className={`flex-row items-center justify-center space-x-3 rounded-xl border border-gray-300 bg-white px-6 py-4 dark:border-gray-600 dark:bg-gray-800 ${
-              isGoogleLoading || isDiscordLoading ? "opacity-50" : ""
-            }`}
-          >
-            {isGoogleLoading ? (
-              <ActivityIndicator color="#4285F4" size="small" />
-            ) : (
-              <Text className="text-lg">🔍</Text>
-            )}
-            <Text className="text-lg font-semibold text-gray-900 dark:text-white">
-              Continue with Google
-            </Text>
-          </Pressable>
+            {/* Google Button */}
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={handleGoogleLogin}
+              disabled={isGoogleLoading || isDiscordLoading}
+              isLoading={isGoogleLoading}
+              style={{ marginBottom: 20 }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {!isGoogleLoading && (
+                  <Text style={{ fontSize: 18, marginRight: 8 }}>🔍</Text>
+                )}
+                <Text style={{ fontSize: 16, fontWeight: '600' }}>
+                  Continue with Google
+                </Text>
+              </View>
+            </Button>
 
-          {/* Demo Button */}
-          <Pressable
-            onPress={handleDemoLogin}
-            className="mt-4 flex-row items-center justify-center space-x-3 rounded-xl bg-gray-100 px-6 py-4 dark:bg-gray-700"
-          >
-            <Text className="text-lg">🎭</Text>
-            <Text className="text-lg font-semibold text-gray-900 dark:text-white">
-              Continue as Demo
-            </Text>
-          </Pressable>
+            {/* Divider */}
+            <View style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              marginVertical: 20 
+            }}>
+              <View style={{ 
+                flex: 1, 
+                height: 1, 
+                backgroundColor: '#e5e7eb' 
+              }} />
+              <Text style={{ 
+                marginHorizontal: 16, 
+                fontSize: 12, 
+                color: '#6b7280' 
+              }}>OR</Text>
+              <View style={{ 
+                flex: 1, 
+                height: 1, 
+                backgroundColor: '#e5e7eb' 
+              }} />
+            </View>
+
+            {/* Demo Button */}
+            <Button
+              variant="secondary"
+              size="lg"
+              onPress={handleDemoLogin}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, marginRight: 8 }}>🎭</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600' }}>
+                  Continue as Demo
+                </Text>
+              </View>
+            </Button>
         </View>
 
         {/* Footer */}
-        <View className="mt-8 items-center">
-          <Text className="text-center text-sm text-gray-500 dark:text-gray-400">
-            By continuing, you agree to our Terms of Service and Privacy Policy
+        <View style={{ alignItems: 'center', marginTop: 16 }}>
+          <Text style={{ 
+            textAlign: 'center', 
+            fontSize: 12, 
+            color: '#6b7280',
+            lineHeight: 16,
+            maxWidth: 300
+          }}>
+            By continuing, you agree to our Terms of Service and Privacy Policy.
+            Your data is encrypted and secure.
           </Text>
         </View>
-      </View>
-    </Animated.View>
+      </Animated.View>
+    </ScrollView>
   );
 }
