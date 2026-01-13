@@ -22,13 +22,14 @@ import { DrawerActions } from "@react-navigation/native";
 const HomePage = () => {
   const { token } = useAuth();
   const navigation = useNavigation();
-  const {
-    clearImageUris,
-    setBottomChatHeightHandler,
-    chatId,
-    setChatId,
-    setGlobalStoreMessages,
-  } = useStore();
+
+  // Use individual selectors to avoid re-rendering on unrelated store changes
+  const clearImageUris = useStore((state) => state.clearImageUris);
+  const setBottomChatHeightHandler = useStore((state) => state.setBottomChatHeightHandler);
+  const chatId = useStore((state) => state.chatId);
+  const setChatId = useStore((state) => state.setChatId);
+  const setGlobalStoreMessages = useStore((state) => state.setGlobalStoreMessages);
+
   const inputRef = useRef<TextInput>(null);
 
   // Initialize chatId if not set

@@ -1,4 +1,3 @@
-//use auth new version
 import React, {
   createContext,
   type PropsWithChildren,
@@ -8,12 +7,10 @@ import React, {
   useState,
   useMemo,
 } from "react";
-import { useRouter, useRootNavigationState } from "expo-router";
 import { toast } from "@/components/sonner";
 import { useBoolean } from "usehooks-ts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useStore } from "@/lib/globalStore";
-import { DrawerActions, useNavigation } from "@react-navigation/native";
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -49,25 +46,19 @@ export function useAuth() {
   const state = useContext(AuthStateContext);
   const actions = useContext(AuthActionsContext);
 
-  if (process.env.NODE_ENV !== "production") {
-    if (!state || !actions) {
-      throw new Error("useAuth must be used within an AuthProvider");
-    }
+  if (!state || !actions) {
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-
-  const redirectIfNotAuthenticated = useCallback(() => {
-    // Navigation logic will be handled by components that use this hook
-  }, [state.isAuthenticated]);
 
   const session = useMemo(() => {
     if (!state.token || !state.user?.id) return undefined;
     return {
       token: state.token,
-      id: state?.user?.id,
+      id: state.user.id,
     };
   }, [state.token, state.user?.id]);
 
-  return { ...state, ...actions, redirectIfNotAuthenticated, session };
+  return { ...state, ...actions, session };
 }
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
@@ -181,19 +172,20 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         }
       },
       signOut: async () => {
-        const { setChatId } = useStore.getState();
-        setChatId(null);
-        setIsLoading(true);
-        await AsyncStorage.removeItem("session");
-        await setAuthState({
-          session: undefined,
-          isAuthenticated: false,
-          token: undefined,
-          user: undefined,
-        });
-        console.log("signout");
-        // Navigation will be handled by the component using this hook
-        setIsLoading(false);
+        try {
+          await AsyncStorage.removeItem("session");
+          await setAuthState({
+            session: undefined,
+            isAuthenticated: false,
+            token: undefined,
+            user: undefined,
+          });
+          // Clear chatId after auth state is updated
+          const { setChatId } = useStore.getState();
+          setChatId(null);
+        } catch (error) {
+          console.error("Error signing out:", error);
+        }
       },
     }),
     [setAuthState, setIsLoading],
@@ -220,10 +212,10 @@ const useAsyncState = <T,>(
 ): [T, (value: T) => Promise<void>] => {
   const [state, setState] = useState<T>(initialValue);
 
-  const setAsyncState = async (value: T) => {
+  const setAsyncState = useCallback(async (value: T) => {
     setState(value);
     await AsyncStorage.setItem("authState", JSON.stringify(value));
-  };
+  }, []);
 
   return [state, setAsyncState];
 };

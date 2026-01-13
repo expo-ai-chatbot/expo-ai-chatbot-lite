@@ -54,7 +54,10 @@ export function DrawerContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const router = useRouter();
-  const { chatId, setChatId } = useStore();
+
+  // Use individual selectors to avoid re-rendering on unrelated store changes
+  const chatId = useStore((state) => state.chatId);
+  const setChatId = useStore((state) => state.setChatId);
 
   const fetchChats = async () => {
     if (!token) return;
