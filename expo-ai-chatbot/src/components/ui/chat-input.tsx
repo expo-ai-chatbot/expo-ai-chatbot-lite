@@ -30,7 +30,7 @@ import { useStore } from "@/lib/globalStore";
 type Props = {
   input: string;
   onChangeText: (text: string) => void;
-  onSubmit: () => void;
+  onSubmit: (message: string) => void;
   scrollViewRef: React.RefObject<ScrollView>;
   focusOnMount?: boolean;
 };
@@ -185,7 +185,7 @@ export const ChatInput = forwardRef<TextInput, Props>(
               size="icon"
               className="android:h-12 android:w-12 rounded-full bg-black dark:bg-white"
               onPress={() => {
-                onSubmit();
+                onSubmit(input);
                 Keyboard.dismiss();
               }}
             >

@@ -3,12 +3,22 @@ import { Platform } from "react-native";
 import { twMerge } from "tailwind-merge";
 import type {
   CoreAssistantMessage,
-  CoreMessage,
   CoreToolMessage,
-  Message,
-  ToolInvocation,
+  UIMessage,
+  ModelMessage,
 } from "ai";
-import type { Message as DBMessage, Document } from "@/lib/db/schema";
+
+// Define a simple DBMessage type for the conversion function
+type DBMessage = {
+  id: string;
+  parts: any;
+  role: string;
+  createdAt?: Date;
+};
+
+type Document = {
+  createdAt: Date;
+};
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -66,79 +76,38 @@ export function generateUUID(): string {
   });
 }
 
-function addToolMessageToChat({
-  toolMessage,
-  messages,
-}: {
-  toolMessage: CoreToolMessage;
-  messages: Array<Message>;
-}): Array<Message> {
-  return messages.map((message) => {
-    if (message.toolInvocations) {
-      return {
-        ...message,
-        toolInvocations: message.toolInvocations.map((toolInvocation) => {
-          const toolResult = toolMessage.content.find(
-            (tool) => tool.toolCallId === toolInvocation.toolCallId,
-          );
-
-          if (toolResult) {
-            return {
-              ...toolInvocation,
-              state: "result",
-              result: toolResult.result,
-            };
-          }
-
-          return toolInvocation;
-        }),
-      };
-    }
-
-    return message;
-  });
-}
-
+// Convert database messages to UIMessage format (v5)
 export function convertToUIMessages(
   messages: Array<DBMessage>,
-): Array<Message> {
-  return messages.reduce((chatMessages: Array<Message>, message) => {
-    if (message.role === "tool") {
-      return addToolMessageToChat({
-        toolMessage: message as CoreToolMessage,
-        messages: chatMessages,
+): Array<UIMessage> {
+  return messages.map((message) => {
+    // Extract tool invocations from parts array for backward compatibility
+    const toolInvocations: any[] = [];
+
+    if (message.parts && Array.isArray(message.parts)) {
+      message.parts.forEach((part: any) => {
+        if (part.type && part.type.startsWith('tool-')) {
+          const toolName = part.type.replace('tool-', '');
+          toolInvocations.push({
+            toolName,
+            toolCallId: part.toolCallId,
+            state: part.state || 'result',
+            input: part.input,
+            output: part.output,
+            result: part.result || part.output,
+          });
+        }
       });
     }
 
-    let textContent = "";
-    const toolInvocations: Array<ToolInvocation> = [];
-
-    if (typeof message.content === "string") {
-      textContent = message.content;
-    } else if (Array.isArray(message.content)) {
-      for (const content of message.content) {
-        if (content.type === "text") {
-          textContent += content.text;
-        } else if (content.type === "tool-call") {
-          toolInvocations.push({
-            state: "call",
-            toolCallId: content.toolCallId,
-            toolName: content.toolName,
-            args: content.args,
-          });
-        }
-      }
-    }
-
-    chatMessages.push({
+    return {
       id: message.id,
-      role: message.role as Message["role"],
-      content: textContent,
-      toolInvocations,
-    });
-
-    return chatMessages;
-  }, []);
+      parts: message.parts as UIMessage["parts"],
+      role: message.role as UIMessage["role"],
+      createdAt: message.createdAt,
+      toolInvocations: toolInvocations.length > 0 ? toolInvocations : undefined,
+    };
+  });
 }
 
 export function sanitizeResponseMessages(
@@ -180,40 +149,14 @@ export function sanitizeResponseMessages(
   );
 }
 
-export function sanitizeUIMessages(messages: Array<Message>): Array<Message> {
-  const messagesBySanitizedToolInvocations = messages.map((message) => {
-    if (message.role !== "assistant") return message;
-
-    if (!message.toolInvocations) return message;
-
-    const toolResultIds: Array<string> = [];
-
-    for (const toolInvocation of message.toolInvocations) {
-      if (toolInvocation.state === "result") {
-        toolResultIds.push(toolInvocation.toolCallId);
-      }
-    }
-
-    const sanitizedToolInvocations = message.toolInvocations.filter(
-      (toolInvocation) =>
-        toolInvocation.state === "result" ||
-        toolResultIds.includes(toolInvocation.toolCallId),
-    );
-
-    return {
-      ...message,
-      toolInvocations: sanitizedToolInvocations,
-    };
-  });
-
-  return messagesBySanitizedToolInvocations.filter(
-    (message) =>
-      message.content.length > 0 ||
-      (message.toolInvocations && message.toolInvocations.length > 0),
+// In v5, we filter based on parts instead of content/toolInvocations
+export function sanitizeUIMessages(messages: Array<UIMessage>): Array<UIMessage> {
+  return messages.filter(
+    (message) => message.parts && message.parts.length > 0,
   );
 }
 
-export function getMostRecentUserMessage(messages: Array<CoreMessage>) {
+export function getMostRecentUserMessage(messages: Array<ModelMessage>) {
   const userMessages = messages.filter((message) => message.role === "user");
   return userMessages.at(-1);
 }
@@ -228,12 +171,11 @@ export function getDocumentTimestampByIndex(
   return documents[index].createdAt;
 }
 
-export function getMessageIdFromAnnotations(message: Message) {
-  if (!message.annotations) return message.id;
-
-  const [annotation] = message.annotations;
-  if (!annotation) return message.id;
-
-  // @ts-expect-error messageIdFromServer is not defined in MessageAnnotation
-  return annotation.messageIdFromServer;
+export function getMessageIdFromAnnotations(message: UIMessage) {
+  // In v5, annotations are part of message metadata
+  const metadata = message.metadata as any;
+  if (metadata?.messageIdFromServer) {
+    return metadata.messageIdFromServer;
+  }
+  return message.id;
 }

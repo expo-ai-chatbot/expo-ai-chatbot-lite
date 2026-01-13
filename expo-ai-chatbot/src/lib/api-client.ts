@@ -31,15 +31,15 @@ export async function fetchApi(
 
 export async function getChatsByUserId({ token }: { token: string }) {
   try {
-    console.log("getChatsByUserId called");
-    const response = await fetchApi("history", {
+    console.log("getChatsByUserId called with token:", token ? 'present' : 'missing');
+    const response = await fetchApi("/api/history", {
       token,
     });
-    console.log("getChatsByUserId response", response);
+    console.log("getChatsByUserId response:", response);
     return response;
   } catch (error) {
-    console.error("Error fetching chats.", error);
-    throw new Error("Failed to fetch chats");
+    console.error("Error fetching chats:", error);
+    throw error;
   }
 }
 

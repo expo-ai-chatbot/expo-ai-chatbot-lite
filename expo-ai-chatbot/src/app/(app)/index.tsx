@@ -1,35 +1,33 @@
 import { generateUUID } from "@/lib/utils";
 import { Redirect, Stack, useNavigation } from "expo-router";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, type TextInput, View, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { fetch } from "expo/fetch";
+import { fetch as expoFetch } from "expo/fetch";
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import { LottieLoader } from "@/components/lottie-loader";
 import { ChatInterface } from "@/components/chat-interface";
 import { ChatInput } from "@/components/ui/chat-input";
 import { SuggestedActions } from "@/components/suggested-actions";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
+import { useAuth } from "@/services/auth/useAuth";
+import { useChatFromHistory } from "@/hooks/useChatFromHistory";
 import { MessageCirclePlusIcon, Menu } from "lucide-react-native";
-import type { Message } from "@ai-sdk/react";
 import Animated, { FadeIn } from "react-native-reanimated";
-
-type WeatherResult = {
-  city: string;
-  temperature: number;
-  weatherCode: string;
-  humidity: number;
-  wind: number;
-};
+import { DrawerActions } from "@react-navigation/native";
 
 const HomePage = () => {
+  const { token } = useAuth();
+  const navigation = useNavigation();
   const {
     clearImageUris,
     setBottomChatHeightHandler,
-    setFocusKeyboard,
     chatId,
     setChatId,
+    setGlobalStoreMessages,
   } = useStore();
   const inputRef = useRef<TextInput>(null);
 
@@ -40,41 +38,59 @@ const HomePage = () => {
     }
   }, []);
 
+  // Load messages from history if coming from drawer
+  const { initialMessages, loading } = useChatFromHistory({ chatId, token });
+
+  const [input, setInput] = useState("");
+
   const {
     messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
+    status,
     setMessages,
-    append,
+    sendMessage,
   } = useChat({
-    initialMessages: [],
+    messages: [],
     id: chatId?.id,
-    api: `${process.env.EXPO_PUBLIC_API_URL}/api/chat-open`,
-    body: {
-      modelId: "gpt-4o-mini",
-    },
+    generateId: generateUUID,
     onFinish: () => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
-    },
-    fetch: (url: string, options: RequestInit) => {
-      return fetch(url, {
-        ...options,
-        signal: options.signal,
-        headers: {
-          ...options.headers,
-          "Content-Type": "application/json",
-        },
-      }).catch((error) => {
-        console.error("Fetch error:", error);
-        throw error;
-      });
     },
     onError(error) {
       console.log(">> error is", error.message);
     },
+    transport: new DefaultChatTransport({
+      api: `${process.env.EXPO_PUBLIC_API_URL}/api/chat`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      fetch: expoFetch,
+      prepareSendMessagesRequest: ({ messages, id }) => {
+        const lastMessage = messages.at(-1);
+        return {
+          body: {
+            id: chatId?.id,
+            message: lastMessage,
+            selectedChatModel: "google/gemini-2.5-flash-lite",
+            selectedVisibilityType: "public",
+          },
+        };
+      },
+    }),
   });
+
+  const isLoading = status === "streaming" || status === "submitted";
+
+  // Update messages when initialMessages changes (from history)
+  useEffect(() => {
+    if (initialMessages.length > 0) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, setMessages]);
+
+  // Sync messages to global store
+  useEffect(() => {
+    setGlobalStoreMessages(messages);
+  }, [messages, setGlobalStoreMessages]);
 
   const handleNewChat = useCallback(() => {
     // Reset messages first
@@ -91,20 +107,51 @@ const HomePage = () => {
   }, [clearImageUris, setBottomChatHeightHandler, setMessages, setChatId]);
 
   const handleTextChange = (text: string) => {
-    handleInputChange({
-      target: { value: text },
-    } as any);
+    setInput(text);
+  };
+
+  const handleFormSubmit = async (message: string) => {
+    try {
+      if (!message) {
+        return;
+      }
+
+      setBottomChatHeightHandler(true);
+
+      await sendMessage({
+        text: message,
+      });
+
+      setInput("");
+      clearImageUris();
+    } catch (error) {
+      console.error("Error submitting message:", error);
+    }
   };
 
   const { bottom } = useSafeAreaInsets();
   const scrollViewRef = useRef<GHScrollView>(null);
 
-  // Reset messages when chatId changes
+  // Reset messages when chatId changes to a new chat
   useEffect(() => {
-    if (chatId) {
-      setMessages([] as Message[]);
+    if (chatId && chatId.from === "newChat") {
+      setMessages([] as UIMessage[]);
     }
   }, [chatId, setMessages]);
+
+  // Show loading if loading history
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <LottieLoader />
+      </View>
+    );
+  }
+
+  // Redirect to signin if not authenticated
+  if (!token) {
+    return <Redirect href="/signin" />;
+  }
 
   return (
     <Animated.View
@@ -115,13 +162,24 @@ const HomePage = () => {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: "hey",
-
+          title: "Chat",
+          headerLeft: () => (
+            <Pressable
+              className="android:mr-4"
+              onPress={() => {
+                navigation.dispatch(DrawerActions.openDrawer());
+                inputRef.current?.blur();
+              }}
+            >
+              <Menu size={20} color="black" />
+            </Pressable>
+          ),
           headerRight: () => (
-            <Pressable disabled={!messages.length} onPress={handleNewChat}>
+            <Pressable disabled={!messages?.length} onPress={handleNewChat}>
               <MessageCirclePlusIcon
                 size={20}
-                color={!messages.length ? "#eee" : "black"}
+                opacity={!messages?.length ? 0.5 : 1}
+                color="black"
               />
             </Pressable>
           ),
@@ -138,8 +196,8 @@ const HomePage = () => {
         />
       </ScrollView>
 
-      {messages.length === 0 && (
-        <SuggestedActions hasInput={input.length > 0} append={append} />
+      {messages?.length === 0 && (
+        <SuggestedActions hasInput={input.length > 0} sendMessage={sendMessage} />
       )}
 
       <ChatInput
@@ -148,11 +206,7 @@ const HomePage = () => {
         input={input}
         onChangeText={handleTextChange}
         focusOnMount={false}
-        onSubmit={() => {
-          setBottomChatHeightHandler(true);
-          handleSubmit(undefined);
-          clearImageUris();
-        }}
+        onSubmit={handleFormSubmit}
       />
     </Animated.View>
   );

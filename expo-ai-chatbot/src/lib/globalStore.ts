@@ -1,3 +1,4 @@
+import { UIMessage } from "ai";
 import { create } from "zustand";
 
 type ChatIdState = {
@@ -15,9 +16,11 @@ interface StoreState {
   setBottomChatHeightHandler: (value: boolean) => void;
   bottomChatHeightHandler: boolean;
   chatId: ChatIdState;
-  setChatId: (value: { id: string; from: "history" | "newChat" }) => void;
+  setChatId: (value: { id: string; from: "history" | "newChat" } | null) => void;
   setFocusKeyboard: (value: boolean) => void;
   focusKeyboard: boolean;
+  globalStoreMessages: UIMessage[];
+  setGlobalStoreMessages: (value: UIMessage[]) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -42,4 +45,7 @@ export const useStore = create<StoreState>((set) => ({
   setChatId: (value) => set({ chatId: value }),
   focusKeyboard: false,
   setFocusKeyboard: (value: boolean) => set({ focusKeyboard: value }),
+  globalStoreMessages: [],
+  setGlobalStoreMessages: (value: UIMessage[]) =>
+    set({ globalStoreMessages: value }),
 }));

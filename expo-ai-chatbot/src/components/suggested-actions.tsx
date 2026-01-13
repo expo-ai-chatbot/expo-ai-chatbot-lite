@@ -11,19 +11,15 @@ import Animated, {
 } from "react-native-reanimated";
 import { useStore } from "@/lib/globalStore";
 import { generateUUID } from "@/lib/utils";
-import type { Message, CreateMessage } from "@ai-sdk/react";
 
 interface SuggestedActionsProps {
   hasInput?: boolean;
-  append: (
-    message: Message | CreateMessage,
-    chatRequestOptions?: { body?: object },
-  ) => Promise<string | null | undefined>;
+  sendMessage: (options: { text: string }) => Promise<void>;
 }
 
 export function SuggestedActions({
   hasInput = false,
-  append,
+  sendMessage,
 }: SuggestedActionsProps) {
   const { selectedImageUris, setChatId } = useStore();
   const { width } = useWindowDimensions();
@@ -48,16 +44,10 @@ export function SuggestedActions({
     const newChatId = generateUUID();
     setChatId({ id: newChatId, from: "newChat" });
 
-    // Send the initial message using append
-    await append(
-      {
-        role: "user",
-        content: action,
-      },
-      {
-        body: { id: newChatId },
-      },
-    );
+    // Send the initial message using sendMessage (v5 API)
+    await sendMessage({
+      text: action,
+    });
   };
 
   const actions = [
@@ -92,8 +82,6 @@ export function SuggestedActions({
                 "mb-3 mr-2.5 h-32 w-[280px] rounded-lg border border-gray-200 bg-white p-4 dark:bg-black",
               )}
               style={{
-                //   borderWidth: StyleSheet.hairlineWidth,
-                //   borderColor: "red",
                 ...(i === actions.length - 1 && {
                   marginRight: width - cardWidth,
                 }),

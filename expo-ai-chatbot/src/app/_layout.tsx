@@ -1,17 +1,20 @@
+import { Drawer } from "expo-router/drawer";
 import Providers from "@/providers";
-import { Stack } from "expo-router";
+import { DrawerContent } from "@/components/drawer-content";
+
+function WrappedDrawerContent() {
+  return <DrawerContent />;
+}
 
 export default function Layout() {
   return (
     <Providers>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen
-          name="(app)/index"
-          options={{
-            headerTitle: "Expo AI Chatbot",
-          }}
-        />
-      </Stack>
+      <Drawer
+        drawerContent={() => <WrappedDrawerContent />}
+        screenOptions={{
+          headerShown: false,
+        }}
+      />
     </Providers>
   );
 }
